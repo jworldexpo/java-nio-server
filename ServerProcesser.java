@@ -1,4 +1,4 @@
-package com.findqu.programlearn.nio;
+﻿package com.findqu.programlearn.nio;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +32,7 @@ public class ServerProcesser implements Runnable {
     public ServerProcesser(ServerEndPoint serverEndPoint, Queue queue) {
         this(serverEndPoint);
         this.queue = (ArrayBlockingQueue<SocketChannel>) queue;
+        writeByteBuffer.put(serverEndPoint.getReplyContent().getBytes(StandardCharsets.UTF_8));
         try {
             selector = Selector.open();
         } catch (IOException e) {
@@ -64,22 +65,16 @@ public class ServerProcesser implements Runnable {
                     while (iterator.hasNext()) {
                         SelectionKey key = iterator.next();
                         iterator.remove();
-
                         SocketChannel socketChannel = (SocketChannel) key.channel();
-
                         if (socketChannel != null) {
                             if (key.isReadable()) {
                                 readByteBuffer.clear();
-                                int numRead = socketChannel.read(readByteBuffer);
-                                while (numRead != 0) {
-                                    numRead = socketChannel.read(readByteBuffer);
-                                }
+                                socketChannel.read(readByteBuffer);
                                 readByteBuffer.flip();
                                 System.out.println("Server received:" + new String(readByteBuffer.array()));
                                 key.interestOps(SelectionKey.OP_WRITE);
                             } else if (key.isWritable()) {//模拟http请求
-                                writeByteBuffer.clear();
-                                writeByteBuffer.put(serverEndPoint.getReplyContent().getBytes(StandardCharsets.UTF_8));
+                                writeByteBuffer.rewind();
                                 socketChannel.write(writeByteBuffer);
                                 key.interestOps(SelectionKey.OP_READ);
                                 closeScoket(key);
@@ -95,12 +90,13 @@ public class ServerProcesser implements Runnable {
         }
     }
 
+
     private void closeScoket(SelectionKey key) {
         if (key.isValid()) {
             try {
                 SocketChannel socketChannel = (SocketChannel) key.channel();
                 if (socketChannel != null) {
-//                    socketChannel.socket().close();
+                    socketChannel.socket().close();
                     socketChannel.close();
                 }
                 key.cancel();
